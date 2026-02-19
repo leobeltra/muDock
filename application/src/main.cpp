@@ -144,6 +144,8 @@ int main(int argc, char* argv[]) {
     {
       auto threadpool = mudock::threadpool();
       mudock::manager(args.device_confs, threadpool, args.knobs, input_queue, output_queue, pipe);
+      input_queue->close(); // signal that no more ligand will be enqueued, so the workers can stop when they finish the backlog
+      mudock::info("All workers have been created!");
     } // threadpool destructor waits for workers; computation is complete here
 
     if (observer_thread.joinable()) {
