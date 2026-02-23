@@ -7,8 +7,8 @@ namespace mudock {
 
     static constexpr std::string_view molecule_token = adt_mol2_tokens::MOLECULE_TOKEN;
     
-    parser_filter::molVec parser_filter::operator()(std::string_view sv) const {
-        molVec result;
+    parser_filter::mol_vec parser_filter::operator()(std::string_view sv) const {
+        mol_vec result;
     
         while (!sv.empty()) {
             // Assume the format always starts with the molecule token

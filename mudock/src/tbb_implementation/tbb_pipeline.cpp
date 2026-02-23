@@ -13,7 +13,7 @@
 
 namespace mudock {
 
-    static inline void printLigand(const static_molecule& ligand) {
+    static inline void print_ligand(const static_molecule& ligand) {
         std::cout << ligand.properties.get(property_type::NAME) << " "
                   << ligand.properties.get(property_type::SCORE) << "\n";
     }
@@ -22,8 +22,9 @@ namespace mudock {
              const std::vector<std::string>& configurations,
              const knobs& knobs,
              genetic_adt_pipeline& pipeline, 
+             std::size_t end,
              std::size_t max_tokens) {
-        using VecP = parser_filter::molVec;
+        using mol_vec = parser_filter::mol_vec;
 
         auto input_queue  = std::make_shared<safe_stack<static_molecule>>();
         auto output_queue = std::make_shared<safe_stack<static_molecule>>();
@@ -31,7 +32,7 @@ namespace mudock {
         auto drain_ready = [&]() -> std::size_t {
             std::size_t counter = 0;
             while (auto x = output_queue->dequeue()) {
-                printLigand(*x);
+                print_ligand(*x);
                 ++counter;
             }
             return counter;
@@ -43,21 +44,23 @@ namespace mudock {
             manager(configurations, pool, knobs, input_queue, output_queue, pipeline);
             info("Manager done: workers created");
 
+            const std::size_t effective_max_tokens = max_tokens == 0 ? 1 : max_tokens;
+
             oneapi::tbb::parallel_pipeline(
-              max_tokens,
+              effective_max_tokens,
               oneapi::tbb::make_filter<void, std::string>(
                 oneapi::tbb::filter_mode::serial_in_order,
-                stream_filter(in)
+                stream_filter(in, end)
               )
               &
-              oneapi::tbb::make_filter<std::string, VecP>(
+              oneapi::tbb::make_filter<std::string, mol_vec>(
                 oneapi::tbb::filter_mode::parallel,
                 parser_filter()
               )
               &
-              oneapi::tbb::make_filter<VecP, std::size_t>(
-                oneapi::tbb::filter_mode::serial_out_of_order,
-                [=](VecP molecules) -> std::size_t {
+              oneapi::tbb::make_filter<mol_vec, std::size_t>(
+                 oneapi::tbb::filter_mode::serial_out_of_order,
+                [=](mol_vec molecules) -> std::size_t {
                     std::size_t enq = 0;
                     for (auto& p : molecules) {
                         if (p) { input_queue->enqueue(std::move(p)); ++enq; }

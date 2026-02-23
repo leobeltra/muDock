@@ -11,9 +11,9 @@ namespace mudock {
     
     class parser_filter {
         public:
-            using molVec = std::vector<std::unique_ptr<static_molecule>>;
+            using mol_vec = std::vector<std::unique_ptr<static_molecule>>;
 
-            molVec operator()(std::string_view sv) const;
+            mol_vec operator()(std::string_view sv) const;
     };
 
 } // namespace mudock

@@ -1,5 +1,8 @@
 #include "command_line_args.hpp"
 
+#include <fstream>
+#include <cstdlib>
+
 #include <mudock/tbb_implementation/tbb_pipeline.hpp>
 #include <mudock/molecule.hpp>
 #include <mudock/mudock.hpp>
@@ -15,13 +18,19 @@ int main(int argc, char** argv) {
       std::make_shared<mudock::dynamic_molecule>(mudock::parser<mudock::dynamic_molecule>(args.protein_path));
 
   mudock::info("Reading ligand ", args.ligand_path, " ...");
-    std::ifstream in(args.ligand_path, std::ios::binary);
-    if (!in) {
-        mudock::error("Can't open input file ", args.ligand_path);
-        return 1;
-    }
+  std::ifstream in(args.ligand_path, std::ios::binary);
+  if (!in) {
+      mudock::error("Can't open input file ", args.ligand_path);
+      return 1;
+  }
 
   mudock::genetic_adt_pipeline pipe{protein};
+
+  // Print the file size for debugging
+  in.seekg(0, std::ios::end);
+  std::size_t file_size = static_cast<std::size_t>(in.tellg());
+  mudock::info("Ligand file size: ", file_size, " bytes");
+  in.seekg(0, std::ios::beg);
 
   mudock::run_tbb_pipeline(in, args.device_confs, args.knobs, pipe);
 
