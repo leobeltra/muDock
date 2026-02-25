@@ -14,6 +14,7 @@ command_line_arguments parse_command_line_arguments(const int argc, char* argv[]
   std::size_t seed{};
   double time_limit_sec{};
   double observer_sec{};
+  std::string timing_path_str{};
   arguments_description.add_options()("help", "print this help message");
   arguments_description.add_options()("protein",
                                       po::value(&args.protein_path)->default_value(args.protein_path),
@@ -33,6 +34,10 @@ command_line_arguments parse_command_line_arguments(const int argc, char* argv[]
       "observer",
       po::value(&observer_sec),
       "Optional throughput observer interval in seconds");
+  arguments_description.add_options()(
+      "timing",
+      po::value(&timing_path_str),
+      "Write global MPI wall-time to this file (rank 0 only)");
 
   // define the knobs command line arguments
   po::options_description knobs_description("Virtual Screening Knobs");
@@ -88,6 +93,9 @@ command_line_arguments parse_command_line_arguments(const int argc, char* argv[]
 
   // make sure that the arguments make sense before returning them
   po::notify(vm);
+  if (vm.count("timing")) {
+    args.timing_path = std::filesystem::path{timing_path_str};
+  }
   if (vm.count("seed")) {
     args.knobs.seed = std::optional<size_t>{seed};
   }

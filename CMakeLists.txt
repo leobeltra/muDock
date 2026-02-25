@@ -391,8 +391,26 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 # Third-party libraries that must be manually installed
 find_package(Boost CONFIG REQUIRED COMPONENTS program_options graph fiber)
+set(coordgen_DIR "/g100_work/pMI25_DEIB/lbeltram/spack-0.17.1/install/linux-centos8-cascadelake/gcc-13.3.0/openbabel-3.1.1-nlizlglh4uoxvzsn34savatov6h5maqz/lib64/cmake/coordgen")
+find_package(coordgen CONFIG REQUIRED)
 find_package(OpenBabel3 REQUIRED)
 set(CMAKE_ENABLE_EXPORTS ON)
+
+# ---------------------------------------------------------------------------
+# Microsoft.GSL (cppgsl): Spack may provide headers only and no CMake target.
+# Create an INTERFACE imported target so target_link_libraries works.
+# ---------------------------------------------------------------------------
+if(NOT TARGET Microsoft.GSL::GSL)
+  add_library(Microsoft.GSL::GSL INTERFACE IMPORTED)
+
+  # Use the include path that CMake already printed (from Spack cppgsl)
+  set(_CPPGSL_INCLUDE
+      "/g100_work/pMI25_DEIB/lbeltram/spack-0.17.1/install/linux-centos8-cascadelake/gcc-13.3.0/cppgsl-3.1.0-oegumcfxgpgol2qi7pbc5mptjevdnyal/include")
+
+  set_target_properties(Microsoft.GSL::GSL PROPERTIES
+    INTERFACE_INCLUDE_DIRECTORIES "${_CPPGSL_INCLUDE}"
+  )
+endif()
 
 # ##############################################################################
 # ### Enable global compiler flags

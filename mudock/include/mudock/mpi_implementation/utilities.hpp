@@ -2,6 +2,7 @@
 
 #include <string>
 #include <mudock/format/adt_mol2.hpp>
+#include <filesystem>
 
 namespace mudock {
 
