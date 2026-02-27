@@ -45,6 +45,12 @@ int main(int argc, char** argv) {
   auto protein = std::make_shared<mudock::dynamic_molecule>(
       mudock::parser<mudock::dynamic_molecule>(args.protein_path));
 
+  // =========================
+  // GLOBAL TIMING START
+  // =========================
+  MPI_Barrier(MPI_COMM_WORLD);
+  const double t0 = MPI_Wtime();
+
   const std::pair<size_t, size_t> range =
       mudock::mpi_splitter_bcast(args.ligand_path, rank, nranks);
 
@@ -52,21 +58,15 @@ int main(int argc, char** argv) {
   const size_t end   = range.second;
 
   // print range per rank
-  std::cout << "rank " << rank << ": [" << begin << ", " << end << "]\n";
+  mudock::info("rank ", rank, ": [", begin, ", ", end, "]\n");
 
-  // const std::string timing_path = args.timing_path.value_or("mpi_timing.csv");
-
-  // =========================
-  // GLOBAL TIMING START
-  // // =========================
-  // MPI_Barrier(MPI_COMM_WORLD);
-  // const double t0 = MPI_Wtime();
+  const std::string timing_path = args.timing_path.value_or("mpi_timing.csv");
 
     // --- compute our slab ---
   const bool did_work = (begin < end);
   if (did_work) {
-    using clock = std::chrono::steady_clock;
-    auto start_time  = clock::now();
+    // using clock = std::chrono::steady_clock;
+    // auto start_time  = clock::now();
 
     std::ifstream in(args.ligand_path, std::ios::binary);
     if (!in) {
@@ -103,11 +103,11 @@ int main(int argc, char** argv) {
     // const std::uint64_t cnt = mudock::observer_cnt();
     // local_mean              = (cnt > 0) ? (sum / static_cast<double>(cnt)) : 0.0;
 
-    auto end_time                              = clock::now();
-    std::chrono::duration<double> elapsed = end_time - start_time;
+    // auto end_time                              = clock::now();
+    // std::chrono::duration<double> elapsed = end_time - start_time;
 
-    std::cerr << "[GREPME] P" + std::to_string(rank) + "Elapsed time: " + std::to_string(elapsed.count()) +
-                     "s \n";
+    // std::cerr << "[GREPME] P" + std::to_string(rank) + "Elapsed time: " + std::to_string(elapsed.count()) +
+    //                  "s \n";
 
   } else {
     mudock::info("[rank ", rank, "] No work (empty range).");
@@ -116,41 +116,41 @@ int main(int argc, char** argv) {
   // =========================
   // GLOBAL TIMING END
   // =========================
-  // MPI_Barrier(MPI_COMM_WORLD);
-  // const double t1 = MPI_Wtime();
-  // const double local_elapsed = t1 - t0;
+  MPI_Barrier(MPI_COMM_WORLD);
+  const double t1 = MPI_Wtime();
+  const double local_elapsed = t1 - t0;
 
-  // double max_elapsed = 0.0;
-  // double min_elapsed = 0.0;
-  // double sum_elapsed = 0.0;
+  double max_elapsed = 0.0;
+  double min_elapsed = 0.0;
+  double sum_elapsed = 0.0;
 
-  // MPI_Reduce(&local_elapsed, &max_elapsed, 1, MPI_DOUBLE, MPI_MAX, 0, MPI_COMM_WORLD);
-  // MPI_Reduce(&local_elapsed, &min_elapsed, 1, MPI_DOUBLE, MPI_MIN, 0, MPI_COMM_WORLD);
-  // MPI_Reduce(&local_elapsed, &sum_elapsed, 1, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
+  MPI_Reduce(&local_elapsed, &max_elapsed, 1, MPI_DOUBLE, MPI_MAX, 0, MPI_COMM_WORLD);
+  MPI_Reduce(&local_elapsed, &min_elapsed, 1, MPI_DOUBLE, MPI_MIN, 0, MPI_COMM_WORLD);
+  MPI_Reduce(&local_elapsed, &sum_elapsed, 1, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
 
-  // if (rank == 0) {
-  //   const double avg_elapsed = sum_elapsed / static_cast<double>(nranks);
+  if (rank == 0) {
+    const double avg_elapsed = sum_elapsed / static_cast<double>(nranks);
 
-  //   std::ofstream tout(timing_path, std::ios::app);
-  //   if (!tout) {
-  //     mudock::error("[rank 0] Cannot open timing output file: ", timing_path);
-  //   } else {
-  //     auto now = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
+    std::ofstream tout(timing_path, std::ios::app);
+    if (!tout) {
+      mudock::error("[rank 0] Cannot open timing output file: ", timing_path);
+    } else {
+      auto now = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
 
-  //     tout << std::put_time(std::localtime(&now), "%F %T")
-  //           << ",nranks=" << nranks
-  //           // << ",iter=" << iter
-  //           // << ",warmup=" << is_warmup
-  //           << ",total_s=" << std::setprecision(10) << max_elapsed
-  //           << ",min_s="   << min_elapsed
-  //           << ",avg_s="   << avg_elapsed
-  //           << ",max_s="   << max_elapsed
-  //           << "\n";
-  //   }
-  // }
+      tout << std::put_time(std::localtime(&now), "%F %T")
+            << ",nranks=" << nranks
+            // << ",iter=" << iter
+            // << ",warmup=" << is_warmup
+            << ",total_s=" << std::setprecision(10) << max_elapsed
+            << ",min_s="   << min_elapsed
+            << ",avg_s="   << avg_elapsed
+            << ",max_s="   << max_elapsed
+            << "\n";
+    }
+  }
 
   MUDOCK_MARKER_CLOSE;
-  // MPI_Finalize();
+  MPI_Finalize();
   return 0;
 }
 
