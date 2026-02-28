@@ -18,23 +18,6 @@
 
 namespace mudock {
 
-  // valori “dell’ultima run” nel processo (quindi per-rank)
-  static std::atomic<double> g_obs_sum_avg{0.0};
-  static std::atomic<std::uint64_t> g_obs_cnt{0};
-
-  void observer_reset() {
-    g_obs_sum_avg.store(0.0, std::memory_order_relaxed);
-    g_obs_cnt.store(0, std::memory_order_relaxed);
-  }
-
-  double observer_sum_avg() { return g_obs_sum_avg.load(std::memory_order_relaxed); }
-
-  std::uint64_t observer_cnt() { return g_obs_cnt.load(std::memory_order_relaxed); }
-
-} // namespace mudock
-
-namespace mudock {
-
   static inline void print_ligand(const static_molecule& ligand) {
     std::cout << ligand.properties.get(property_type::NAME) << " "
               << ligand.properties.get(property_type::SCORE) << "\n";
