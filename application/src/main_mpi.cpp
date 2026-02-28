@@ -48,8 +48,12 @@ int main(int argc, char** argv) {
   // =========================
   // GLOBAL TIMING START
   // =========================
+  constexpr int RUNS = 5;
+constexpr int WARMUP = 1;
+
+for (int run = 0; run < RUNS; ++run) {
   MPI_Barrier(MPI_COMM_WORLD);
-  const double t0 = MPI_Wtime();
+  const double local_start = MPI_Wtime();
 
   const std::pair<size_t, size_t> range =
       mudock::mpi_splitter_bcast(args.ligand_path, rank, nranks);
@@ -96,7 +100,7 @@ int main(int argc, char** argv) {
   //   in.seekg(static_cast<std::streamoff>(begin), std::ios::beg);
 
     mudock::genetic_adt_pipeline pipe{protein};
-    mudock::run_tbb_pipeline(in, args.device_confs, args.knobs, pipe, end, 64);
+    mudock::run_tbb_pipeline(in, args.device_confs, args.knobs, pipe, end, 64, rank);
 
         // per-rank: mean of observer's avg_throughput samples for THIS run
     // const double sum        = mudock::observer_sum_avg();
@@ -113,20 +117,19 @@ int main(int argc, char** argv) {
     mudock::info("[rank ", rank, "] No work (empty range).");
   }
 
-  // =========================
-  // GLOBAL TIMING END
-  // =========================
-  MPI_Barrier(MPI_COMM_WORLD);
-  const double t1 = MPI_Wtime();
-  const double local_elapsed = t1 - t0;
-
+  const double local_finish = MPI_Wtime();
+  const double t_rank = local_finish - local_start;
   double max_elapsed = 0.0;
   double min_elapsed = 0.0;
   double sum_elapsed = 0.0;
 
-  MPI_Reduce(&local_elapsed, &max_elapsed, 1, MPI_DOUBLE, MPI_MAX, 0, MPI_COMM_WORLD);
-  MPI_Reduce(&local_elapsed, &min_elapsed, 1, MPI_DOUBLE, MPI_MIN, 0, MPI_COMM_WORLD);
-  MPI_Reduce(&local_elapsed, &sum_elapsed, 1, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
+  MPI_Reduce(&t_rank, &max_elapsed, 1, MPI_DOUBLE, MPI_MAX, 0, MPI_COMM_WORLD);
+  MPI_Reduce(&t_rank, &min_elapsed, 1, MPI_DOUBLE, MPI_MIN, 0, MPI_COMM_WORLD);
+  MPI_Reduce(&t_rank, &sum_elapsed, 1, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
+
+  // =========================
+  // GLOBAL TIMING END
+  // =========================
 
   if (rank == 0) {
     const double avg_elapsed = sum_elapsed / static_cast<double>(nranks);
@@ -139,8 +142,8 @@ int main(int argc, char** argv) {
 
       tout << std::put_time(std::localtime(&now), "%F %T")
             << ",nranks=" << nranks
-            // << ",iter=" << iter
-            // << ",warmup=" << is_warmup
+            << ",run=" << run
+            << ",warmup=" << (run < WARMUP ? 1 : 0)
             << ",total_s=" << std::setprecision(10) << max_elapsed
             << ",min_s="   << min_elapsed
             << ",avg_s="   << avg_elapsed
@@ -148,6 +151,7 @@ int main(int argc, char** argv) {
             << "\n";
     }
   }
+}
 
   MUDOCK_MARKER_CLOSE;
   MPI_Finalize();

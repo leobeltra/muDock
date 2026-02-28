@@ -25,7 +25,8 @@ namespace mudock {
              const knobs& knobs,
              genetic_adt_pipeline& pipeline, 
              std::size_t end = std::numeric_limits<std::size_t>::max(),
-             std::size_t max_tokens = max_tbb_tokens);
+             std::size_t max_tokens = max_tbb_tokens,
+             int rank = 0);
     
     // void run_tbb_pipeline(std::istream& in,
     //                   const std::vector<std::string>& configurations,
