@@ -16,6 +16,10 @@
 int main(int argc, char** argv) {
   MPI_Init(&argc, &argv);
 
+  // --- start the timer to measure the runtime ---
+  using clock = std::chrono::steady_clock;
+  auto start  = clock::now();
+
   int rank = 0, nranks = 1;
   MPI_Comm_rank(MPI_COMM_WORLD, &rank);
   MPI_Comm_size(MPI_COMM_WORLD, &nranks);
@@ -36,9 +40,7 @@ int main(int argc, char** argv) {
   // --- compute our slab ---
   const bool did_work = (begin < end);
   if (did_work) {
-    using clock = std::chrono::steady_clock;
-    auto start  = clock::now();
-
+    // open the input file
     std::ifstream in(args.ligand_path, std::ios::binary);
     if (!in) {
       mudock::error("[rank ", rank, "] Can't open input file ", args.ligand_path);
@@ -56,16 +58,15 @@ int main(int argc, char** argv) {
                              pipe,
                              end,
                              /*max_tokens=*/4);
-
-    auto stop                             = clock::now();
-    std::chrono::duration<double> elapsed = stop - start;
-
-    std::cerr << "[GREPME] P" + std::to_string(rank) + "Elapsed time: " + std::to_string(elapsed.count()) +
-                     "s \n";
-
   } else {
     mudock::info("[rank ", rank, "] No work (empty range).");
   }
+
+  // --- stop the timer to measure the runtime ---
+  auto stop                             = clock::now();
+  std::chrono::duration<double> elapsed = stop - start;
+  std::cerr << "[GREPME] P" + std::to_string(rank) + " - Elapsed time: " + std::to_string(elapsed.count()) +
+                   "s \n";
 
   MUDOCK_MARKER_CLOSE;
   MPI_Finalize();
