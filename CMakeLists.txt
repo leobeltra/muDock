@@ -391,8 +391,6 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 # Third-party libraries that must be manually installed
 find_package(Boost CONFIG REQUIRED COMPONENTS program_options graph fiber)
-set(coordgen_DIR "/g100_work/pMI25_DEIB/lbeltram/spack-0.17.1/install/linux-centos8-cascadelake/gcc-13.3.0/openbabel-3.1.1-nlizlglh4uoxvzsn34savatov6h5maqz/lib64/cmake/coordgen")
-find_package(coordgen CONFIG REQUIRED)
 find_package(OpenBabel3 REQUIRED)
 set(CMAKE_ENABLE_EXPORTS ON)
 
