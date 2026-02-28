@@ -45,9 +45,7 @@ namespace mudock {
                         const knobs& knobs,
                         genetic_adt_pipeline& pipeline,
                         std::size_t end,
-                        std::size_t max_tokens,
-                        const double* observer_period_sec,
-                        const double* time_limit_sec) {
+                        std::size_t max_tokens) {
     using mol_vec = parser_filter::mol_vec;
 
     auto input_queue  = std::make_shared<safe_stack<static_molecule>>();
@@ -87,7 +85,7 @@ namespace mudock {
               oneapi::tbb::make_filter<std::string, mol_vec>(oneapi::tbb::filter_mode::parallel,
                                                              parser_filter()) &
               oneapi::tbb::make_filter<mol_vec, std::size_t>(oneapi::tbb::filter_mode::serial_out_of_order,
-                                                             [&](mol_vec molecules) -> std::size_t {
+                                                             [&](mol_vec molecules) {
                                                                for (auto& p: molecules) {
                                                                  if (!p)
                                                                    continue;
@@ -102,9 +100,10 @@ namespace mudock {
 
                                                                  input_queue->enqueue(std::move(p));
                                                                }
+                                                               return molecules.size();
                                                              }) &
               oneapi::tbb::make_filter<std::size_t, void>(oneapi::tbb::filter_mode::serial_out_of_order,
-                                                          [&]() { drain_ready(); }));
+                                                          [&](std::size_t) { drain_ready(); }));
 
       info("Pipeline done: closing input queue");
       input_queue->close();

@@ -55,17 +55,10 @@ int main(int argc, char** argv) {
                              args.knobs,
                              pipe,
                              end,
-                             /*max_tokens=*/4,
-                             args.observer ? &*args.observer : nullptr,
-                             args.time_limit_sec ? &*args.time_limit_sec : nullptr);
+                             /*max_tokens=*/4);
 
-    // per-rank: mean of observer's avg_throughput samples for THIS run
-    const double sum        = mudock::observer_sum_avg();
-    const std::uint64_t cnt = mudock::observer_cnt();
-    local_mean              = (cnt > 0) ? (sum / static_cast<double>(cnt)) : 0.0;
-
-    auto end                              = clock::now();
-    std::chrono::duration<double> elapsed = end - start;
+    auto stop                             = clock::now();
+    std::chrono::duration<double> elapsed = stop - start;
 
     std::cerr << "[GREPME] P" + std::to_string(rank) + "Elapsed time: " + std::to_string(elapsed.count()) +
                      "s \n";
