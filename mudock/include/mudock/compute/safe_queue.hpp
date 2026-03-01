@@ -3,14 +3,15 @@
 #include <condition_variable>
 #include <cstdint>
 #include <deque>
+#include <memory>
 #include <mutex>
 
-namespace dpipe {
+namespace mudock {
 
   template<typename T>
-  class finite_queue {
+  class safe_queue {
     // this is the actual container of the queue
-    std::deque<T> buffer;
+    std::deque<std::unique_ptr<T>> buffer;
     std::size_t max_buffer_size;
 
     // tto signal when to exit
@@ -22,13 +23,14 @@ namespace dpipe {
     std::condition_variable outwork_available;
 
   public:
-    using value_type = T;
+    using value_type     = T;
+    using value_ptr_type = std::unique_ptr<T>;
 
-    finite_queue(void): max_buffer_size(1), signal_terminate(false) {}
+    safe_queue(void): max_buffer_size(1), signal_terminate(false) {}
 
     // this queue cannot be copied or moved around
-    finite_queue(const finite_queue &) = delete;
-    finite_queue(finite_queue &&)      = delete;
+    safe_queue(const safe_queue &) = delete;
+    safe_queue(safe_queue &&)      = delete;
 
     inline void initialize(const std::size_t max_queue_size) {
       std::unique_lock<std::mutex> lock(queue_mutex);
@@ -67,7 +69,7 @@ namespace dpipe {
     // this method attempt to remove and return an element from the queue. The output parameters tells if the
     // returned pointer is meaningful or a null pointer.
     // NOTE: this method might block the execution of the application.
-    value_type dequeue(bool &is_retrieved) {
+    value_ptr_type dequeue(bool &is_retrieved) {
       // wait until there is some event
       std::unique_lock<std::mutex> lock(queue_mutex);
       while (!signal_terminate && buffer.empty()) { // spourious events might happens!
@@ -77,7 +79,7 @@ namespace dpipe {
       // if the terminate signal is set, return a nullpointer
       if (signal_terminate) {
         is_retrieved = false;
-        return value_type{};
+        return value_ptr_type{};
       }
 
       // otherwise, return the first element available
@@ -92,7 +94,7 @@ namespace dpipe {
     // been succesfully inserted in the queue. In this case the queue owns the element and the user is not
     // allowed to dereference the pointer. If the operation fails, i.e. the termination signal is set, the owner
     // of the data is still the caller
-    void enqueue(value_type &input_data, bool &is_stored) {
+    void enqueue(value_ptr_type &input_data, bool &is_stored) {
       // try to enqueue the element (if there is enough space)
       std::unique_lock<std::mutex> lock(queue_mutex);
       while (!signal_terminate && (buffer.size() >= max_buffer_size)) { // spourious events might happens!
@@ -111,4 +113,4 @@ namespace dpipe {
       is_stored = true;
     }
   };
-} // namespace dpipe
+} // namespace mudock

@@ -13,6 +13,7 @@
 #include <mudock/compute/pipeline.hpp>
 #include <mudock/compute/queue.hpp>
 #include <mudock/compute/reorder_buffer.hpp>
+#include <mudock/compute/safe_queue.hpp>
 #include <mudock/compute/safe_stack.hpp>
 #include <mudock/compute/scoring.hpp>
 #include <mudock/compute/scratchpad.hpp>

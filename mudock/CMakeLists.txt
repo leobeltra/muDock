@@ -76,9 +76,6 @@ list(
   "${header_path}/${header_prefix}/molecule/graph.hpp"
   "${header_path}/${header_prefix}/molecule/properties.hpp"
   "${header_path}/${header_prefix}/molecule/property_table.hpp"
-  "${header_path}/${header_prefix}/tbb_implementation/stream_filter.hpp"
-  "${header_path}/${header_prefix}/tbb_implementation/parser_filter.hpp"
-  "${header_path}/${header_prefix}/tbb_implementation/tbb_pipeline.hpp"
   "${header_path}/${header_prefix}/batch.hpp"
   "${header_path}/${header_prefix}/chem.hpp"
   "${header_path}/${header_prefix}/compute.hpp"
@@ -124,9 +121,6 @@ list(
   "${source_path}/cpp_implementation/geom_transform_cpp.cpp"
   "${source_path}/cpp_implementation/adt_score_cpp.cpp"
   "${source_path}/cpp_implementation/genetic_cpp.cpp"
-  "${source_path}/tbb_implementation/stream_filter.cpp"
-  "${source_path}/tbb_implementation/parser_filter.cpp"
-  "${source_path}/tbb_implementation/tbb_pipeline.cpp"
 )
 if(MUDOCK_ENABLE_GH)
   list(APPEND source_files

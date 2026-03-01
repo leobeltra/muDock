@@ -11,17 +11,6 @@ set(source_path "${CMAKE_CURRENT_SOURCE_DIR}/src")
 list(APPEND source_files "${header_path}/command_line_args.cpp"
      "${source_path}/main.cpp")
 
-# TBB source
-set(tbb_source_files
-    "${header_path}/command_line_args.cpp"
-    "${source_path}/main_tbb_stream.cpp")  
-    
-# MPI source
-find_package(MPI REQUIRED COMPONENTS CXX)
-set(mpi_source_files
-    "${header_path}/command_line_args.cpp"
-    "${source_path}/main_mpi.cpp")    
-    
 # ##############################################################################
 # ### Declare the compile step
 # ##############################################################################
@@ -37,6 +26,7 @@ set_target_properties(
              CXX_STANDARD_REQUIRED ON
              CXX_EXTENSIONS OFF
              POSITION_INDEPENDENT_CODE FALSE)
+
 # Required by OpenBabel dynamic plugin/libraries loading
 target_compile_options("${CMAKE_PROJECT_NAME}" PRIVATE -fno-plt)
 target_link_options("${CMAKE_PROJECT_NAME}" PRIVATE -Wl,-z,now)
@@ -44,37 +34,6 @@ if(NOT MUDOCK_ENABLE_OMP)
   target_compile_options("${CMAKE_PROJECT_NAME}" PRIVATE -Wno-unknown-pragmas)
 endif()
 
-# TBB executable
-add_executable_mudock("${CMAKE_PROJECT_NAME}_tbb" "${header_files}" "${tbb_source_files}")
-target_include_directories("${CMAKE_PROJECT_NAME}_tbb" PRIVATE "${header_path}")
-set_target_properties(
-  "${CMAKE_PROJECT_NAME}_tbb"
-  PROPERTIES CXX_STANDARD 20
-             CXX_STANDARD_REQUIRED ON
-             CXX_EXTENSIONS OFF
-             POSITION_INDEPENDENT_CODE FALSE)
-# Same flags as main executable
-target_compile_options("${CMAKE_PROJECT_NAME}_tbb" PRIVATE -fno-plt)
-target_link_options("${CMAKE_PROJECT_NAME}_tbb" PRIVATE -Wl,-z,now)
-if(NOT MUDOCK_ENABLE_OMP)
-  target_compile_options("${CMAKE_PROJECT_NAME}_tbb" PRIVATE -Wno-unknown-pragmas)
-endif()
-
-# MPI executable
-add_executable_mudock("${CMAKE_PROJECT_NAME}_mpi" "${header_files}" "${mpi_source_files}")
-target_include_directories("${CMAKE_PROJECT_NAME}_mpi" PRIVATE "${header_path}")
-set_target_properties(
-  "${CMAKE_PROJECT_NAME}_mpi"
-  PROPERTIES CXX_STANDARD 20
-             CXX_STANDARD_REQUIRED ON
-             CXX_EXTENSIONS OFF
-             POSITION_INDEPENDENT_CODE FALSE)
-# Same flags as main executable
-target_compile_options("${CMAKE_PROJECT_NAME}_mpi" PRIVATE -fno-plt)
-target_link_options("${CMAKE_PROJECT_NAME}_mpi" PRIVATE -Wl,-z,now)
-if(NOT MUDOCK_ENABLE_OMP)
-  target_compile_options("${CMAKE_PROJECT_NAME}_mpi" PRIVATE -Wno-unknown-pragmas)
-endif()
 
 # add the dependencies
 if(MUDOCK_ENABLE_SYCL)
@@ -92,63 +51,22 @@ if(MUDOCK_ENABLE_SYCL)
     Boost::fiber
     m
     stdc++)
-  target_link_libraries(
-    "${CMAKE_PROJECT_NAME}_tbb"
-    libmudock
-    Boost::program_options
-    Boost::context
-    pthread
-    Boost::fiber
-    m
-    stdc++)
-  target_link_libraries(
-    "${CMAKE_PROJECT_NAME}_mpi"
-    libmudock
-    Boost::program_options
-    Boost::context
-    pthread
-    Boost::fiber
-    m
-    stdc++
-    MPI::MPI_CXX)
 else()
   target_link_libraries(
     ${CMAKE_PROJECT_NAME}
     libmudock
     Boost::program_options
-    Boost::context
     pthread
     m
     stdc++)
-  target_link_libraries(
-    "${CMAKE_PROJECT_NAME}_tbb"
-    libmudock
-    Boost::program_options
-    Boost::context
-    pthread
-    m
-    stdc++)
-  target_link_libraries(
-    "${CMAKE_PROJECT_NAME}_mpi"
-    libmudock
-    Boost::program_options
-    Boost::context
-    pthread
-    m
-    stdc++
-    MPI::MPI_CXX)
 endif()
 
 if(MUDOCK_ENABLE_GH)
   target_link_libraries("${CMAKE_PROJECT_NAME}" hwy::hwy)
-  target_link_libraries("${CMAKE_PROJECT_NAME}_tbb" hwy::hwy)
-  target_link_libraries("${CMAKE_PROJECT_NAME}_mpi" hwy::hwy)
 endif()
 
 if(MUDOCK_ENABLE_OMP OR MUDOCK_ENABLE_OMP_OFFLOAD)
   target_link_libraries("${CMAKE_PROJECT_NAME}" OpenMP::OpenMP_CXX)
-  target_link_libraries("${CMAKE_PROJECT_NAME}_tbb" OpenMP::OpenMP_CXX)
-  target_link_libraries("${CMAKE_PROJECT_NAME}_mpi" OpenMP::OpenMP_CXX)
 endif()
 
 if(MUDOCK_ENABLE_OMP_OFFLOAD)
@@ -159,8 +77,8 @@ if(MUDOCK_ENABLE_OMP_OFFLOAD)
                       "-fopenmp-targets=nvptx64")
 endif()
 
-add_subdirectory("${CMAKE_CURRENT_SOURCE_DIR}/src/bench" bench)
-add_subdirectory("${CMAKE_CURRENT_SOURCE_DIR}/src/tests" tests)
+#add_subdirectory("${CMAKE_CURRENT_SOURCE_DIR}/src/bench" bench)
+#add_subdirectory("${CMAKE_CURRENT_SOURCE_DIR}/src/tests" tests)
 
 # if(MUDOCK_ENABLE_LIKWID)
 #   # target_include_directories("${CMAKE_PROJECT_NAME}" PRIVATE
