@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cassert>
 #include <condition_variable>
 #include <cstdint>
 #include <deque>
@@ -76,18 +77,18 @@ namespace mudock {
         outwork_available.wait(lock);               // release lock -> wait for a wake_up -> reaquire lock
       }
 
-      // if the terminate signal is set, return a nullpointer
-      if (signal_terminate) {
+      // get a new job from the input queue (if any)
+      if (!buffer.empty()) {
+        auto output_data = std::move(buffer.back());
+        buffer.pop_back();
+        inwork_available.notify_one();
+        is_retrieved = true;
+        return output_data;
+      } else {
+        assert(signal_terminate);
         is_retrieved = false;
         return value_ptr_type{};
       }
-
-      // otherwise, return the first element available
-      auto output_data = std::move(buffer.back());
-      buffer.pop_back();
-      inwork_available.notify_one();
-      is_retrieved = true;
-      return output_data;
     }
 
     // this method attempt to insert an element in the queue. The output flag tells if the input element has

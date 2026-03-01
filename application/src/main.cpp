@@ -90,9 +90,14 @@ int main(int argc, char* argv[]) {
   auto threadpool = mudock::threadpool();
   mudock::manager(args.device_confs, threadpool, args.knobs, input_queue, output_queue, pipe);
 
-  // wait until the reader and the writer finished what they are doing
+  // wait until the reader and the pipeline completed the execution
   reader.wait();
   threadpool.wait();
+
+  // send the terminate message to the output queue
+  output_queue->send_terminate_signal();
+
+  // wait until the writer complete its job
   writer.wait();
   mudock::info("The computation is done!");
 
