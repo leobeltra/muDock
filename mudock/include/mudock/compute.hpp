@@ -1,6 +1,8 @@
 #pragma once
 
 #include <mudock/compute/adt_score.hpp>
+#include <mudock/compute/adt_score_kernel.hpp>
+#include <mudock/compute/asynch_pipeline.hpp>
 #include <mudock/compute/buffer.hpp>
 #include <mudock/compute/buffer_utils.hpp>
 #include <mudock/compute/devices_memory.hpp>

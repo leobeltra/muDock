@@ -5,15 +5,9 @@
 #include <chrono>
 #include <condition_variable>
 #include <fstream>
+#include <future>
 #include <iostream>
 #include <memory>
-#include <mudock/chem/autodock_grid_types.hpp>
-#include <mudock/compute.hpp>
-#include <mudock/compute/manager.hpp>
-#include <mudock/format/reader.hpp>
-#include <mudock/format/supported_format.hpp>
-#include <mudock/likwid_utils.hpp>
-#include <mudock/molecule.hpp>
 #include <mudock/mudock.hpp>
 #include <mutex>
 #include <thread>
@@ -28,129 +22,88 @@ int main(int argc, char* argv[]) {
   auto protein =
       std::make_shared<mudock::dynamic_molecule>(mudock::parser<mudock::dynamic_molecule>(args.protein_path));
 
-  // declare the input and output queue for the workers
-  auto text_queue   = std::make_shared<mudock::safe_queue<mudock::static_molecule>>();
+  // declare and initialize the data structures that are shared among workers
   auto input_queue  = std::make_shared<mudock::safe_queue<mudock::static_molecule>>();
   auto output_queue = std::make_shared<mudock::safe_queue<mudock::static_molecule>>();
   input_queue->initialize(1000);
   output_queue->initialize(1000);
-
-  // read  all the ligands description from the standard input and split them
-  mudock::info("Reading ligand ", args.ligand_path, " ...");
-  const auto in_format = mudock::parse_supported_format(args.ligand_path);
-  constexpr_switch<0, mudock::get_num_supported_format(), 1>(
-      [&](const auto format_index) {
-        const auto format = static_cast<mudock::supported_format>(format_index());
-        auto input_text   = read_from_stream(std::ifstream(args.ligand_path));
-        mudock::splitter<mudock::type_of_format<static_cast<mudock::supported_format>(format_index())>> split;
-        auto ligands_description = split(std::move(input_text));
-        ligands_description.emplace_back(split.flush());
-
-        // parse the input ligands and put them in a stack that we can compute
-        mudock::info("Parsing ", ligands_description.size(), " ligand(s) ...");
-        if constexpr (format == mudock::supported_format::ADTMOL2) {
-#ifdef _OPENMP
-  #pragma omp parallel for shared(input_queue)
-#endif
-          for (const auto& description: ligands_description) {
-            auto ligand = std::make_unique<mudock::static_molecule>(
-                mudock::parser<mudock::supported_format::ADTMOL2, mudock::static_molecule>(description));
-            auto is_stored = false;
-            input_queue->enqueue(ligand, is_stored);
-            assert(is_stored);
-          }
-        } else {
-          for (const auto& description: ligands_description) {
-            try {
-              auto ligand = std::make_unique<mudock::static_molecule>(
-                  mudock::parser<format, mudock::static_molecule>(description));
-              auto is_stored = false;
-              input_queue->enqueue(ligand, is_stored);
-              assert(is_stored);
-            } catch (...) {}
-          }
-        }
-      },
-      in_format);
-
-  // compute all the ligands according to the input configuration
-  mudock::info("Virtual screening the ligands ...");
   mudock::genetic_adt_pipeline pipe{protein};
 
-  const auto start = std::chrono::high_resolution_clock::now();
-  {
-    std::mutex observer_mutex;
-    std::condition_variable observer_cv;
-    bool observer_stop = false;
-    std::thread observer_thread;
-    if (args.observer && *args.observer > 0.0) {
-      mudock::info("Observer enabled with period: ", *args.observer, " s");
-      observer_thread = std::thread([&]() {
-        std::size_t prev_processed = output_queue->size();
-        auto prev_time             = std::chrono::high_resolution_clock::now();
-        while (true) {
-          std::unique_lock<std::mutex> lock(observer_mutex);
-          const bool stop = observer_cv.wait_for(lock, std::chrono::duration<double>(*args.observer), [&]() {
-            return observer_stop;
-          });
-          if (stop) {
-            break;
-          }
-          lock.unlock();
+  // start the reader
+  mudock::info("Reading ligand in \"", args.ligand_path, "\" ...");
+  auto reader = std::async(std::launch::async, mudock::read_and_parse, args.ligand_path, input_queue);
 
-          const auto now                  = std::chrono::high_resolution_clock::now();
-          const std::size_t now_processed = output_queue->size();
-          const std::size_t in_backlog    = input_queue->size();
+  // start the writer
+  auto writer = std::async(std::launch::async, mudock::write, output_queue);
 
-          const std::chrono::duration<double> dt = now - prev_time;
-          const std::size_t delta_processed      = now_processed - prev_processed;
-          const double inst_throughput =
-              dt.count() > 0.0 ? static_cast<double>(delta_processed) / dt.count() : 0.0;
-          const std::chrono::duration<double> total = now - start;
-          const double avg_throughput =
-              total.count() > 0.0 ? static_cast<double>(now_processed) / total.count() : 0.0;
-
-          mudock::info("Observer: processed=",
-                       now_processed,
-                       ", input_backlog=",
-                       in_backlog,
-                       ", inst_throughput=",
-                       inst_throughput,
-                       " ligands/s, avg_throughput=",
-                       avg_throughput,
-                       " ligands/s");
-
-          prev_processed = now_processed;
-          prev_time      = now;
+  // start the observer
+  std::mutex observer_mutex;
+  std::condition_variable observer_cv;
+  bool observer_stop = false;
+  const auto start   = std::chrono::high_resolution_clock::now();
+  std::thread observer_thread;
+  if (args.observer && *args.observer > 0.0) {
+    mudock::info("Observer enabled with period: ", *args.observer, " s");
+    observer_thread = std::thread([&]() {
+      std::size_t prev_processed = output_queue->size();
+      auto prev_time             = std::chrono::high_resolution_clock::now();
+      while (true) {
+        std::unique_lock<std::mutex> lock(observer_mutex);
+        const bool stop = observer_cv.wait_for(lock, std::chrono::duration<double>(*args.observer), [&]() {
+          return observer_stop;
+        });
+        if (stop) {
+          break;
         }
-      });
-    }
+        lock.unlock();
 
-    {
-      auto threadpool = mudock::threadpool();
-      mudock::manager(args.device_confs, threadpool, args.knobs, input_queue, output_queue, pipe);
-      input_queue->send_terminate_signal();
-      mudock::info("All workers have been created!");
-    } // threadpool destructor waits for workers; computation is complete here
+        const auto now                  = std::chrono::high_resolution_clock::now();
+        const std::size_t now_processed = output_queue->size();
+        const std::size_t in_backlog    = input_queue->size();
 
-    if (observer_thread.joinable()) {
-      {
-        std::lock_guard<std::mutex> lock(observer_mutex);
-        observer_stop = true;
+        const std::chrono::duration<double> dt = now - prev_time;
+        const std::size_t delta_processed      = now_processed - prev_processed;
+        const double inst_throughput =
+            dt.count() > 0.0 ? static_cast<double>(delta_processed) / dt.count() : 0.0;
+        const std::chrono::duration<double> total = now - start;
+        const double avg_throughput =
+            total.count() > 0.0 ? static_cast<double>(now_processed) / total.count() : 0.0;
+
+        mudock::info("Observer: processed=",
+                     now_processed,
+                     ", input_backlog=",
+                     in_backlog,
+                     ", inst_throughput=",
+                     inst_throughput,
+                     " ligands/s, avg_throughput=",
+                     avg_throughput,
+                     " ligands/s");
+
+        prev_processed = now_processed;
+        prev_time      = now;
       }
-      observer_cv.notify_one();
-      observer_thread.join();
-    }
-  } // when we exit from this block the computation is complete
+    });
+  }
 
-  // after the computation it will be nice to print the score of all the molecules
-  mudock::info("Printing the scores ...");
-  bool is_retrieved = false;
-  for (auto ligand = output_queue->dequeue(is_retrieved); ligand;
-       ligand      = output_queue->dequeue(is_retrieved)) {
-    if (is_retrieved)
-      std::cout << ligand->properties.get(mudock::property_type::NAME) << " "
-                << ligand->properties.get(mudock::property_type::SCORE) << std::endl;
+  // spaw
+  mudock::info("Spawing the working threads ...");
+  auto threadpool = mudock::threadpool();
+  mudock::manager(args.device_confs, threadpool, args.knobs, input_queue, output_queue, pipe);
+
+  // wait until the reader and the writer finished what they are doing
+  reader.wait();
+  threadpool.wait();
+  writer.wait();
+  mudock::info("The computation is done!");
+
+  // stop the obseerver
+  if (observer_thread.joinable()) {
+    {
+      std::lock_guard<std::mutex> lock(observer_mutex);
+      observer_stop = true;
+    }
+    observer_cv.notify_one();
+    observer_thread.join();
   }
 
   MUDOCK_MARKER_CLOSE;
