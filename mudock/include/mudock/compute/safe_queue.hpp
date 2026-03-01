@@ -5,6 +5,7 @@
 #include <cstdint>
 #include <deque>
 #include <memory>
+#include <mudock/log.hpp>
 #include <mutex>
 
 namespace mudock {
@@ -14,6 +15,9 @@ namespace mudock {
     // this is the actual container of the queue
     std::deque<std::unique_ptr<T>> buffer;
     std::size_t max_buffer_size;
+
+    // this is a counter only for statistical purposes
+    std::size_t global_counter;
 
     // tto signal when to exit
     bool signal_terminate;
@@ -27,7 +31,7 @@ namespace mudock {
     using value_type     = T;
     using value_ptr_type = std::unique_ptr<T>;
 
-    safe_queue(void): max_buffer_size(1), signal_terminate(false) {}
+    safe_queue(void): max_buffer_size(1), global_counter(0), signal_terminate(false) {}
 
     // this queue cannot be copied or moved around
     safe_queue(const safe_queue &) = delete;
@@ -48,6 +52,11 @@ namespace mudock {
     inline bool empty(void) const {
       std::unique_lock<std::mutex> lock(queue_mutex);
       return buffer.empty();
+    }
+
+    inline std::size_t get_global_counter(void) const {
+      std::unique_lock<std::mutex> lock(queue_mutex);
+      return global_counter;
     }
 
     inline void send_terminate_signal(void) {
@@ -112,6 +121,7 @@ namespace mudock {
       buffer.emplace_front(std::move(input_data));
       outwork_available.notify_one();
       is_stored = true;
+      global_counter += 1;
     }
   };
 } // namespace mudock

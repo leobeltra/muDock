@@ -58,8 +58,8 @@ int main(int argc, char* argv[]) {
         lock.unlock();
 
         const auto now                  = std::chrono::high_resolution_clock::now();
-        const std::size_t now_processed = output_queue->size();
-        const std::size_t in_backlog    = input_queue->size();
+        const std::size_t now_processed = output_queue->get_global_counter();
+        const std::size_t in_backlog    = input_queue->get_global_counter();
 
         const std::chrono::duration<double> dt = now - prev_time;
         const std::size_t delta_processed      = now_processed - prev_processed;
