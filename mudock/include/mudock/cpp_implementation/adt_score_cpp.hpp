@@ -7,7 +7,7 @@
 namespace mudock {
   template<>
   inline int get_adt_score_batch<queue_cpp>(const int, std::shared_ptr<queue_cpp>, const size_t) {
-    return 10;
+    return 100;
   }
 
   template<>

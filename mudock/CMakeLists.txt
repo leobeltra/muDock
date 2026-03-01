@@ -253,6 +253,7 @@ endif()
 
 # declare the mudock library
 find_package(TBB REQUIRED)
+find_package(MPI REQUIRED COMPONENTS CXX)
 add_library(libmudock STATIC ${source_files} ${header_files})
 add_library(mudock::libmudock ALIAS libmudock)
 set_target_properties(libmudock PROPERTIES PUBLIC_HEADER "${headers}")
@@ -266,7 +267,7 @@ set_target_properties(
              CXX_EXTENSIONS OFF
              POSITION_INDEPENDENT_CODE ON)
 target_link_libraries(libmudock PUBLIC Microsoft.GSL::GSL Boost::graph
-                                       ${OpenBabel3_LIBRARIES} TBB::tbb)
+                                       ${OpenBabel3_LIBRARIES} TBB::tbb MPI::MPI_CXX)
 target_include_directories(libmudock SYSTEM PRIVATE ${Boost_INCLUDE_DIR})
 if(NOT MUDOCK_ENABLE_OMP)
   target_compile_options(libmudock PRIVATE -Wno-unknown-pragmas)

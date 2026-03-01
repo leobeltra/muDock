@@ -24,6 +24,13 @@
 
 namespace mudock {
 
+    std::string get_node_name() {
+        char name[MPI_MAX_PROCESSOR_NAME];
+        int len = 0;
+        MPI_Get_processor_name(name, &len);
+        return std::string(name, len);
+   }
+
     static inline void print_ligand(const static_molecule& ligand) {
         std::cout << ligand.properties.get(property_type::NAME) << " "
                   << ligand.properties.get(property_type::SCORE) << "\n";
@@ -47,16 +54,26 @@ namespace mudock {
     // =========================
     std::atomic<bool> done{false};
 
+    std::uint64_t out_count = 0;
+
     std::thread consumer([&]{
         std::ofstream out("results/rank_" + std::to_string(rank) + ".csv");
-        while (!done.load()) {
-            auto x = output_queue->dequeue();
-            if (x) {
-                out << x->properties.get(property_type::NAME) << ","
-                    << x->properties.get(property_type::SCORE) << "\n";
+
+        while (!done.load(std::memory_order_acquire)) {
+            if (auto x = output_queue->dequeue()) {
+                // out << x->properties.get(property_type::NAME) << ","
+                //     << x->properties.get(property_type::SCORE) << "\n";
+                ++out_count;
             } else {
                 std::this_thread::sleep_for(std::chrono::microseconds(50));
             }
+        }
+
+        // flush finale: drena tutto ciò che è rimasto
+        while (auto x = output_queue->dequeue()) {
+            // out << x->properties.get(property_type::NAME) << ","
+            //     << x->properties.get(property_type::SCORE) << "\n";
+            ++out_count;
         }
     });
 
@@ -113,13 +130,22 @@ namespace mudock {
         input_queue->close();
     }
 
+    info("Output drained to file by node ", get_node_name(), " i.e. rank ", rank, ")");
     // =========================
     // finalize consumer
     // =========================
     done.store(true);
     consumer.join();
 
-    info("Output drained to file");
+    // ✅ MPI collettive SOLO nel thread principale
+    std::uint64_t minc = 0, maxc = 0, sumc = 0;
+    MPI_Reduce(&out_count, &minc, 1, MPI_UINT64_T, MPI_MIN, 0, MPI_COMM_WORLD);
+    MPI_Reduce(&out_count, &maxc, 1, MPI_UINT64_T, MPI_MAX, 0, MPI_COMM_WORLD);
+    MPI_Reduce(&out_count, &sumc, 1, MPI_UINT64_T, MPI_SUM, 0, MPI_COMM_WORLD);
+
+    if (rank == 0) {
+        mudock::info("molecules per rank: min=", minc, " max=", maxc, " sum=", sumc);
+    }
 }
 
 } // namespace mudock

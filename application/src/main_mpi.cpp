@@ -56,7 +56,7 @@ for (int run = 0; run < RUNS; ++run) {
   const double local_start = MPI_Wtime();
 
   const std::pair<size_t, size_t> range =
-      mudock::mpi_splitter_bcast(args.ligand_path, rank, nranks);
+    mudock::mpi_splitter_bcast(args.ligand_path, rank, nranks);
 
   const size_t begin = range.first;
   const size_t end   = range.second;
