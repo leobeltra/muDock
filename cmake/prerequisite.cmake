@@ -4,25 +4,11 @@
 # so we use a preinstalled package (e.g. Spack "cppgsl") or a vendored copy.
 # ##############################################################################
 
-include_guard(GLOBAL)
-
-# Try to find headers like: <prefix>/include/gsl/gsl
-find_path(MS_GSL_INCLUDE_DIR
-  NAMES gsl/gsl
-  HINTS
-    ENV CPATH
-    ENV CMAKE_PREFIX_PATH
-  PATH_SUFFIXES include
-)
-
-if(MS_GSL_INCLUDE_DIR)
-  message(STATUS "Found Microsoft GSL headers in: ${MS_GSL_INCLUDE_DIR}")
-  add_library(GSL INTERFACE)
-  target_include_directories(GSL INTERFACE "${MS_GSL_INCLUDE_DIR}")
-else()
-  message(FATAL_ERROR
-    "Microsoft GSL headers not found (expected gsl/gsl).\n"
-    "Fix options:\n"
-    "  1) spack install cppgsl && spack load cppgsl\n"
-    "  2) vendor microsoft/GSL into third_party/GSL and ensure third_party/GSL/include/gsl/gsl exists.\n")
-endif()
+# TODO remove GSL depndencies
+include(FetchContent)
+FetchContent_Declare(
+  GSL
+  GIT_REPOSITORY "https://github.com/microsoft/GSL"
+  GIT_TAG "v4.0.0"
+  GIT_SHALLOW ON)
+FetchContent_MakeAvailable(GSL)
