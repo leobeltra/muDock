@@ -91,7 +91,8 @@ if(MUDOCK_ENABLE_SYCL)
     pthread
     Boost::fiber
     m
-    stdc++)
+    stdc++
+    MPI::MPI_CXX)
   target_link_libraries(
     "${CMAKE_PROJECT_NAME}_tbb"
     libmudock
@@ -119,7 +120,8 @@ else()
     Boost::context
     pthread
     m
-    stdc++)
+    stdc++
+    MPI::MPI_CXX)
   target_link_libraries(
     "${CMAKE_PROJECT_NAME}_tbb"
     libmudock

@@ -1,9 +1,12 @@
 #include "command_line_args.hpp"
 
+#include <mpi.h>
+
 #include <atomic>
 #include <chrono>
 #include <condition_variable>
 #include <cassert>
+#include <filesystem>
 #include <fstream>
 #include <iostream>
 #include <mutex>
@@ -14,10 +17,16 @@
 #include <mudock/format/reader.hpp>
 #include <mudock/format/supported_format.hpp>
 #include <mudock/likwid_utils.hpp>
+#include <mudock/mpi_implementation/utilities.hpp>
 #include <mudock/molecule.hpp>
 #include <mudock/mudock.hpp>
 
 int main(int argc, char* argv[]) {
+  MPI_Init(&argc, &argv);
+  int rank = 0, nranks = 1;
+  MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+  MPI_Comm_size(MPI_COMM_WORLD, &nranks);
+
   const auto args = parse_command_line_arguments(argc, argv);
 
   MUDOCK_MARKER_INIT;
@@ -27,14 +36,34 @@ int main(int argc, char* argv[]) {
   auto protein =
       std::make_shared<mudock::dynamic_molecule>(mudock::parser<mudock::dynamic_molecule>(args.protein_path));
 
-  // read  all the ligands description from the standard input and split them
-  mudock::info("Reading ligand ", args.ligand_path, " ...");
+  // read all the ligands description and split MPI ranges as in main_mpi
+  mudock::info("[rank ", rank, "] Reading ligand ", args.ligand_path, " ...");
   const auto in_format = mudock::parse_supported_format(args.ligand_path);
   auto input_queue     = std::make_shared<mudock::safe_stack<mudock::static_molecule>>();
+
+  const auto range =
+      mudock::mpi_splitter_bcast(args.ligand_path.string(), rank, nranks, MPI_COMM_WORLD);
+  const std::size_t begin = static_cast<std::size_t>(range.first);
+  const std::size_t end   = static_cast<std::size_t>(range.second);
+  mudock::info("[rank ", rank, "] range: [", begin, ", ", end, "]");
+
+  std::string input_text;
+  if (begin < end) {
+    std::ifstream in(args.ligand_path, std::ios::binary);
+    if (!in) {
+      mudock::error("[rank ", rank, "] Can't open input file ", args.ligand_path);
+      MPI_Abort(MPI_COMM_WORLD, 1);
+    }
+    in.seekg(static_cast<std::streamoff>(begin), std::ios::beg);
+    const std::size_t bytes = end - begin;
+    input_text.resize(bytes);
+    in.read(input_text.data(), static_cast<std::streamsize>(bytes));
+    input_text.resize(static_cast<std::size_t>(in.gcount()));
+  }
+
   constexpr_switch<0, mudock::get_num_supported_format(), 1>(
       [&](const auto format_index) {
         const auto format = static_cast<mudock::supported_format>(format_index());
-        auto input_text   = read_from_stream(std::ifstream(args.ligand_path));
         mudock::splitter<mudock::type_of_format<static_cast<mudock::supported_format>(format_index())>> split;
         auto ligands_description = split(std::move(input_text));
         ligands_description.emplace_back(split.flush());
@@ -179,6 +208,7 @@ int main(int argc, char* argv[]) {
   }
 
   MUDOCK_MARKER_CLOSE;
+  MPI_Finalize();
 
   // if we reach this statement we completed successfully the run
   mudock::info("All Done!");
