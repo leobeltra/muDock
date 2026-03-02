@@ -177,6 +177,8 @@ int main(int argc, char* argv[]) {
       mudock::info("All workers have been created!");
     } // threadpool destructor waits for workers; computation is complete here
 
+    mudock::info("Computation complete, shutting down observer and timer threads ...");
+
     if (observer_thread.joinable()) {
       {
         std::lock_guard<std::mutex> lock(observer_mutex);
@@ -202,15 +204,18 @@ int main(int argc, char* argv[]) {
 
   // after the computation it will be nice to print the score of all the molecules
   mudock::info("Printing the scores ...");
-  for (auto ligand = output_queue->dequeue(); ligand; ligand = output_queue->dequeue()) {
-    std::cout << ligand->properties.get(mudock::property_type::NAME) << " "
-              << ligand->properties.get(mudock::property_type::SCORE) << std::endl;
-  }
+  // for (auto ligand = output_queue->dequeue(); ligand; ligand = output_queue->dequeue()) {
+  //   std::cout << ligand->properties.get(mudock::property_type::NAME) << " "
+  //             << ligand->properties.get(mudock::property_type::SCORE) << std::endl;
+  // }
+
+  // if we reach this statement we completed successfully the run
+  mudock::info("All Done!");
+
+  // MPI_Barrier(MPI_COMM_WORLD);
 
   MUDOCK_MARKER_CLOSE;
   MPI_Finalize();
 
-  // if we reach this statement we completed successfully the run
-  mudock::info("All Done!");
   return EXIT_SUCCESS;
 }
