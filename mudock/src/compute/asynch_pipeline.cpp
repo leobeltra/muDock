@@ -47,10 +47,7 @@ namespace mudock {
     }
 
     // align the begin and end of the slab according to the content
-    if (rank > 0)
-      begin = find_previous_marker(instream, begin);
-    if (rank < size - 1)
-      end = find_previous_marker(instream, end);
+    begin = align_marker(instream, begin);
 
     // print debug message
     std::cerr << "[GREPME] P" + std::to_string(rank) + " - Slab size: " + std::to_string(end - begin) + " \n";
@@ -87,7 +84,7 @@ namespace mudock {
               auto valid_size = std::size_t{0};
               for (const auto& desc: ligands_description) {
                 current_slab_offset += desc.size();
-                if (current_slab_offset <= end) {
+                if (current_slab_offset < end) {
                   valid_size += 1;
                 } else {
                   need_to_read = false;

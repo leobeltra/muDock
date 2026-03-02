@@ -7,40 +7,21 @@
 namespace mudock {
 
   // helper function to return the offset of the previous marker token
-  static std::size_t find_previous_marker(std::istream& file, std::size_t pos) {
-    if (pos == 0)
-      return 0;
+  static std::size_t align_marker(std::istream& file, std::size_t pos) {
+    const std::string_view marker = adt_mol2_tokens::MOLECULE_TOKEN;
 
-    const std::string_view marker           = adt_mol2_tokens::MOLECULE_TOKEN;
-    constexpr std::size_t search_block_size = 2000;
-
+    // define the reading buffer that we go back to search for the starting molecule
+    constexpr std::size_t search_block_size = 1024 * 40; // 40Kb
     std::string buffer(search_block_size, '\0');
 
-    while (pos > 0) {
-      const std::size_t read_size = std::min(search_block_size, pos);
-      const std::size_t start     = pos - read_size;
+    // read the file to look for the correct molecule
+    file.seekg(static_cast<std::streamoff>(pos), std::ios::beg);
+    file.read(buffer.data(), static_cast<std::streamsize>(search_block_size));
+    buffer.resize(file.gcount());
 
-      file.clear();
-      file.seekg(static_cast<std::streamoff>(start), std::ios::beg);
-      file.read(buffer.data(), static_cast<std::streamsize>(read_size));
-
-      const std::size_t got = static_cast<std::size_t>(file.gcount());
-      if (got == 0)
-        break;
-
-      const std::string_view view(buffer.data(), got);
-      const std::size_t cut = view.rfind(marker);
-
-      // if marker is found, return its offset
-      if (cut != std::string_view::npos) {
-        return start + cut;
-      }
-
-      // go to the previous block
-      pos = start;
-    }
-
-    return 0;
+    // find the first occurrence of the maker (if any)
+    const auto first_occur = buffer.find(marker);
+    return first_occur != std::string::npos ? pos + first_occur : std::string::npos;
   }
 
 } // namespace mudock
