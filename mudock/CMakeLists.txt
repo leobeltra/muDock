@@ -24,6 +24,7 @@ list(
   "${header_path}/${header_prefix}/chem/mehler_solmajer.hpp"
   "${header_path}/${header_prefix}/chem/molecule_layer.hpp"
   "${header_path}/${header_prefix}/compute/safe_stack.hpp"
+  "${header_path}/${header_prefix}/compute/safe_queue.hpp"
   "${header_path}/${header_prefix}/compute/parse_ids.hpp"
   "${header_path}/${header_prefix}/compute/reorder_buffer.hpp"
   "${header_path}/${header_prefix}/compute/threadpool.hpp"
