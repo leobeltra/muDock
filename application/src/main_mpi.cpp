@@ -32,11 +32,6 @@ int main(int argc, char** argv) {
   auto protein =
       std::make_shared<mudock::dynamic_molecule>(mudock::parser<mudock::dynamic_molecule>(args.protein_path));
 
-  // --- compute per-rank range once ---
-  const std::pair<size_t, size_t> range = mudock::mpi_splitter(args.ligand_path, rank, nranks);
-  const size_t begin                    = range.first;
-  const size_t end                      = range.second;
-
   // --- compute our slab ---
   const bool did_work = (begin < end);
   if (did_work) {

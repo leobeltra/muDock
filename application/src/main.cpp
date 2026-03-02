@@ -8,14 +8,20 @@
 #include <future>
 #include <iostream>
 #include <memory>
+#include <mpi.h>
 #include <mudock/mudock.hpp>
 #include <mutex>
 #include <thread>
 
 int main(int argc, char* argv[]) {
+  MPI_Init(&argc, &argv);
   const auto args = parse_command_line_arguments(argc, argv);
 
   MUDOCK_MARKER_INIT;
+
+  // start measuring the walltime
+  using clock = std::chrono::high_resolution_clock;
+  auto start  = clock::now();
 
   // read and parse the target protein
   mudock::info("Reading and parsing protein ", args.protein_path, " ...");
@@ -40,7 +46,6 @@ int main(int argc, char* argv[]) {
   std::mutex observer_mutex;
   std::condition_variable observer_cv;
   bool observer_stop = false;
-  const auto start   = std::chrono::high_resolution_clock::now();
   std::thread observer_thread;
   if (args.observer && *args.observer > 0.0) {
     mudock::info("Observer enabled with period: ", *args.observer, " s");
@@ -101,6 +106,13 @@ int main(int argc, char* argv[]) {
   writer.wait();
   mudock::info("The computation is done!");
 
+  // write a message with the measured walltime
+  int rank = 0;
+  MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+  auto stop                             = clock::now();
+  std::chrono::duration<double> elapsed = stop - start;
+  std::cerr << "[GREPME] P" + std::to_string(rank) + " - Elapsed time: " + std::to_string(elapsed.count()) +
+                   "s (processed " + std::to_string(output_queue->get_global_counter()) + " ligands) \n";
   // stop the obseerver
   if (observer_thread.joinable()) {
     {
@@ -115,5 +127,6 @@ int main(int argc, char* argv[]) {
 
   // if we reach this statement we completed successfully the run
   mudock::info("All Done!");
+  MPI_Finalize();
   return EXIT_SUCCESS;
 }
