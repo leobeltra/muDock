@@ -1,5 +1,6 @@
 cmake_minimum_required(VERSION 3.25 FATAL_ERROR)
-cmake_policy(SET CMP0167 NEW)
+project(muDock VERSION 1.0)
+enable_language(CXX C)
 
 # Utilities define the function to remove the version from the end of shared
 # object
@@ -13,6 +14,9 @@ function(remove_version_from_filename input_filename version output_filename)
       "${directory_path}/${filename_without_extension}.so"
       PARENT_SCOPE)
 endfunction()
+
+# enable the export of compile commands to ease the integration with IDE
+set(CMAKE_ENABLE_EXPORTS ON)
 
 # Inlude compialtios details and Third-party libraries that we download and
 # compile
@@ -64,8 +68,6 @@ if(NOT MUDOCK_GPU_ARCHITECTURES STREQUAL "none")
 endif()
 
 # CPU
-project(muDock VERSION 1.0)
-enable_language(CXX)
 set(MUDOCK_BUCKET_LEVEL "OFF" CACHE STRING "Bucket level: OFF|MEDIUM|LARGE|EXTREME")
 set_property(CACHE MUDOCK_BUCKET_LEVEL PROPERTY STRINGS OFF MEDIUM LARGE EXTREME)
 option(MUDOCK_ENABLE_IPO "Enable IPO" OFF)
@@ -385,30 +387,8 @@ endif()
 # export also compile commands to have a better integration with the ide
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
-# ##############################################################################
-# ### Handle third party dependenies
-# ##############################################################################
 
-# Third-party libraries that must be manually installed
-find_package(Boost CONFIG REQUIRED COMPONENTS program_options graph fiber)
-find_package(OpenBabel3 REQUIRED)
-set(CMAKE_ENABLE_EXPORTS ON)
 
-# ---------------------------------------------------------------------------
-# Microsoft.GSL (cppgsl): Spack may provide headers only and no CMake target.
-# Create an INTERFACE imported target so target_link_libraries works.
-# ---------------------------------------------------------------------------
-if(NOT TARGET Microsoft.GSL::GSL)
-  add_library(Microsoft.GSL::GSL INTERFACE IMPORTED)
-
-  # Use the include path that CMake already printed (from Spack cppgsl)
-  set(_CPPGSL_INCLUDE
-      "/g100_work/pMI25_DEIB/lbeltram/spack-0.17.1/install/linux-centos8-cascadelake/gcc-13.3.0/cppgsl-3.1.0-oegumcfxgpgol2qi7pbc5mptjevdnyal/include")
-
-  set_target_properties(Microsoft.GSL::GSL PROPERTIES
-    INTERFACE_INCLUDE_DIRECTORIES "${_CPPGSL_INCLUDE}"
-  )
-endif()
 
 # ##############################################################################
 # ### Enable global compiler flags

@@ -26,6 +26,8 @@ set_target_properties(
              CXX_STANDARD_REQUIRED ON
              CXX_EXTENSIONS OFF
              POSITION_INDEPENDENT_CODE FALSE)
+target_compile_definitions("${CMAKE_PROJECT_NAME}" PUBLIC "OMPI_SKIP_MPICXX") # OpenMPI
+target_compile_definitions("${CMAKE_PROJECT_NAME}" PUBLIC "MPICH_SKIP_MPICXX") # MPICH
 
 # Required by OpenBabel dynamic plugin/libraries loading
 target_compile_options("${CMAKE_PROJECT_NAME}" PRIVATE -fno-plt)
@@ -40,15 +42,13 @@ if(MUDOCK_ENABLE_SYCL)
   string(FIND "${ACPP_TARGETS}" "omp" SUBSTRING_INDEX)
   if(SUBSTRING_INDEX GREATER -1)
     target_link_libraries("${CMAKE_PROJECT_NAME}" omp)
-    target_link_libraries("${CMAKE_PROJECT_NAME}_tbb" omp)  
   endif()
   target_link_libraries(
     ${CMAKE_PROJECT_NAME}
     libmudock
     Boost::program_options
-    Boost::context
     pthread
-    Boost::fiber
+    MPI::MPI_C
     m
     stdc++)
 else()
@@ -57,6 +57,7 @@ else()
     libmudock
     Boost::program_options
     pthread
+    MPI::MPI_C
     m
     stdc++)
 endif()
