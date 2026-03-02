@@ -255,6 +255,8 @@ add_library(mudock::libmudock ALIAS libmudock)
 set_target_properties(libmudock PROPERTIES PUBLIC_HEADER "${headers}")
 target_include_directories(libmudock PUBLIC "${header_path}")
 target_include_directories(libmudock SYSTEM PUBLIC ${OpenBabel3_INCLUDE_DIRS})
+target_compile_definitions(libmudock PUBLIC "OMPI_SKIP_MPICXX") # OpenMPI
+target_compile_definitions(libmudock PUBLIC "MPICH_SKIP_MPICXX") # MPICH
 set_target_properties(libmudock PROPERTIES PREFIX "" OUTPUT_NAME "libmudock")
 set_target_properties(
   libmudock
@@ -262,7 +264,7 @@ set_target_properties(
              CXX_STANDARD_REQUIRED ON
              CXX_EXTENSIONS OFF
              POSITION_INDEPENDENT_CODE ON)
-target_link_libraries(libmudock PUBLIC Microsoft.GSL::GSL Boost::graph
+target_link_libraries(libmudock PUBLIC Microsoft.GSL::GSL Boost::graph MPI::MPI_C
                                        ${OpenBabel3_LIBRARIES} TBB::tbb)
 target_include_directories(libmudock SYSTEM PRIVATE ${Boost_INCLUDE_DIR})
 if(NOT MUDOCK_ENABLE_OMP)
