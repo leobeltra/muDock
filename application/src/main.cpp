@@ -32,7 +32,7 @@ int main(int argc, char* argv[]) {
   MUDOCK_MARKER_INIT;
 
   // read and parse the target protein
-  mudock::info("Reading and parsing protein ", args.protein_path, " ...");
+  mudock::info("[rank ", rank, "] Reading and parsing protein ", args.protein_path, " ...");
   auto protein =
       std::make_shared<mudock::dynamic_molecule>(mudock::parser<mudock::dynamic_molecule>(args.protein_path));
 
@@ -69,7 +69,7 @@ int main(int argc, char* argv[]) {
         ligands_description.emplace_back(split.flush());
 
         // parse the input ligands and put them in a stack that we can compute
-        mudock::info("Parsing ", ligands_description.size(), " ligand(s) ...");
+        mudock::info("[rank ", rank, "] Parsing ", ligands_description.size(), " ligand(s) ...");
         if constexpr (format == mudock::supported_format::ADTMOL2) {
 #ifdef _OPENMP
 #pragma omp parallel for shared(input_queue)
@@ -92,7 +92,7 @@ int main(int argc, char* argv[]) {
       in_format);
 
   // compute all the ligands according to the input configuration
-  mudock::info("Virtual screening the ligands ...");
+  mudock::info("[rank ", rank, "] Virtual screening the ligands ...");
   mudock::genetic_adt_pipeline pipe{protein};
 
   auto output_queue = std::make_shared<mudock::safe_stack<mudock::static_molecule>>();
@@ -105,7 +105,7 @@ int main(int argc, char* argv[]) {
     bool observer_stop = false;
     std::thread observer_thread;
     if (args.observer && *args.observer > 0.0) {
-      mudock::info("Observer enabled with period: ", *args.observer, " s");
+      mudock::info("[rank ", rank, "] Observer enabled with period: ", *args.observer, " s");
       observer_thread = std::thread([&]() {
         std::size_t prev_processed = output_queue->size();
         auto prev_time             = std::chrono::high_resolution_clock::now();
@@ -131,7 +131,9 @@ int main(int argc, char* argv[]) {
           const double avg_throughput =
               total.count() > 0.0 ? static_cast<double>(now_processed) / total.count() : 0.0;
 
-          mudock::info("Observer: processed=",
+          mudock::info("[rank ",
+                       rank,
+                       "] Observer: processed=",
                        now_processed,
                        ", input_backlog=",
                        in_backlog,
@@ -152,7 +154,7 @@ int main(int argc, char* argv[]) {
     bool timer_cancelled = false;
     std::thread timer_thread;
     if (args.time_limit_sec && *args.time_limit_sec > 0.0) {
-      mudock::info("Time limit enabled: ", *args.time_limit_sec, " s");
+      mudock::info("[rank ", rank, "] Time limit enabled: ", *args.time_limit_sec, " s");
       timer_thread = std::thread([&]() {
         std::unique_lock<std::mutex> lock(timer_mutex);
         const bool cancelled = timer_cv.wait_for(lock,
@@ -164,7 +166,9 @@ int main(int argc, char* argv[]) {
         lock.unlock();
         dropped_by_timeout.store(input_queue->clear(), std::memory_order_relaxed);
         timeout_triggered.store(true, std::memory_order_relaxed);
-        mudock::info("Time limit reached: discarded ",
+        mudock::info("[rank ",
+                     rank,
+                     "] Time limit reached: discarded ",
                      dropped_by_timeout.load(std::memory_order_relaxed),
                      " pending ligand(s) from input queue.");
       });
@@ -174,7 +178,7 @@ int main(int argc, char* argv[]) {
       auto threadpool = mudock::threadpool();
       mudock::manager(args.device_confs, threadpool, args.knobs, input_queue, output_queue, pipe);
       input_queue->close(); // signal that no more ligand will be enqueued, so the workers can stop when they finish the backlog
-      mudock::info("All workers have been created!");
+      mudock::info("[rank ", rank, "] All workers have been created!");
     } // threadpool destructor waits for workers; computation is complete here
 
     mudock::info("Computation complete, shutting down observer and timer threads ...");
@@ -199,23 +203,23 @@ int main(int argc, char* argv[]) {
   } // when we exit from this block the computation is complete
 
   if (timeout_triggered.load(std::memory_order_relaxed)) {
-    mudock::info("Dropped ligands due to timeout: ", dropped_by_timeout.load(std::memory_order_relaxed));
+    mudock::info("[rank ",
+                 rank,
+                 "] Dropped ligands due to timeout: ",
+                 dropped_by_timeout.load(std::memory_order_relaxed));
   }
 
   // after the computation it will be nice to print the score of all the molecules
-  mudock::info("Printing the scores ...");
-  // for (auto ligand = output_queue->dequeue(); ligand; ligand = output_queue->dequeue()) {
-  //   std::cout << ligand->properties.get(mudock::property_type::NAME) << " "
-  //             << ligand->properties.get(mudock::property_type::SCORE) << std::endl;
-  // }
-
-  // if we reach this statement we completed successfully the run
-  mudock::info("All Done!");
-
-  // MPI_Barrier(MPI_COMM_WORLD);
+  mudock::info("[rank ", rank, "] Printing the scores ...");
+  for (auto ligand = output_queue->dequeue(); ligand; ligand = output_queue->dequeue()) {
+    std::cout << ligand->properties.get(mudock::property_type::NAME) << " "
+              << ligand->properties.get(mudock::property_type::SCORE) << std::endl;
+  }
 
   MUDOCK_MARKER_CLOSE;
   MPI_Finalize();
 
+  // if we reach this statement we completed successfully the run
+  mudock::info("[rank ", rank, "] All Done!");
   return EXIT_SUCCESS;
 }
