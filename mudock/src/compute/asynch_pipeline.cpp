@@ -83,9 +83,9 @@ namespace mudock {
               // make sure to compute only the molecules assigned to us
               auto valid_size = std::size_t{0};
               for (const auto& desc: ligands_description) {
-                current_slab_offset += desc.size();
                 if (current_slab_offset < end) {
                   valid_size += 1;
+                  current_slab_offset += desc.size();
                 } else {
                   need_to_read = false;
                   break;
