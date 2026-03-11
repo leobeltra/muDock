@@ -24,9 +24,10 @@ int main(int argc, char* argv[]) {
 
   mudock::info("Reading ligand ", args.ligand_path, " ...");
   const auto in_format = mudock::parse_supported_format(args.ligand_path);
-  auto input_queue     = std::make_shared<mudock::safe_stack<mudock::static_molecule>>();
+  auto input_queue     = std::make_shared<mudock::safe_queue<mudock::static_molecule>>();
   constexpr_switch<0, mudock::get_num_supported_format(), 1>(
       [&](const auto format_index) {
+        bool is_stored = false;
         const auto format = static_cast<mudock::supported_format>(format_index());
         auto input_text   = read_from_stream(std::ifstream(args.ligand_path));
         mudock::splitter<mudock::type_of_format<static_cast<mudock::supported_format>(format_index())>> split;
@@ -41,14 +42,14 @@ int main(int argc, char* argv[]) {
           for (const auto& description: ligands_description) {
             auto ligand = std::make_unique<mudock::static_molecule>(
                 mudock::parser<mudock::supported_format::ADTMOL2, mudock::static_molecule>(description));
-            input_queue->enqueue(std::move(ligand));
+            input_queue->enqueue(ligand, is_stored);
           }
         } else {
           for (const auto& description: ligands_description) {
             try {
               auto ligand = std::make_unique<mudock::static_molecule>(
                   mudock::parser<format, mudock::static_molecule>(description));
-              input_queue->enqueue(std::move(ligand));
+              input_queue->enqueue(ligand, is_stored);
             } catch (...) {}
           }
         }
@@ -59,7 +60,7 @@ int main(int argc, char* argv[]) {
   mudock::info("Scores per ligand (population): ", args.knobs.population_number);
 
   mudock::adt_score_pipeline pipe{protein};
-  auto output_queue = std::make_shared<mudock::safe_stack<mudock::static_molecule>>();
+  auto output_queue = std::make_shared<mudock::safe_queue<mudock::static_molecule>>();
 
   const auto start = std::chrono::high_resolution_clock::now();
   std::atomic<std::size_t> dropped_by_timeout{0};
@@ -127,6 +128,7 @@ int main(int argc, char* argv[]) {
           return;
         }
         lock.unlock();
+        input_queue->send_terminate_signal();
         dropped_by_timeout.store(input_queue->clear(), std::memory_order_relaxed);
         timeout_triggered.store(true, std::memory_order_relaxed);
         mudock::info("Time limit reached: discarded ",
@@ -162,7 +164,8 @@ int main(int argc, char* argv[]) {
   const std::chrono::duration<double> elapsed = end - start;
 
   std::size_t processed = 0;
-  for (auto ligand = output_queue->dequeue(); ligand; ligand = output_queue->dequeue()) { ++processed; }
+  bool is_drained = false;
+  for (auto ligand = output_queue->dequeue(is_drained); ligand; ligand = output_queue->dequeue(is_drained)) { ++processed; }
 
   mudock::info("Processed ligands: ", processed);
   if (timeout_triggered.load(std::memory_order_relaxed)) {

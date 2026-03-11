@@ -71,6 +71,14 @@ namespace mudock {
       signal_terminate = false;
     }
 
+    inline std::size_t clear() {
+      std::unique_lock<std::mutex> lock(queue_mutex);
+      const std::size_t n = buffer.size();
+      buffer.clear();
+      inwork_available.notify_all();
+      return n;
+    }
+
     inline bool get_terminate_signal(void) {
       std::unique_lock<std::mutex> lock(queue_mutex);
       return signal_terminate;

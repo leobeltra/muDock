@@ -100,7 +100,7 @@ for (int run = 0; run < RUNS; ++run) {
   //   in.seekg(static_cast<std::streamoff>(begin), std::ios::beg);
 
     mudock::genetic_adt_pipeline pipe{protein};
-    mudock::run_tbb_pipeline(in, args.device_confs, args.knobs, pipe, end, 64, rank);
+    mudock::run_tbb_pipeline(in, args.device_confs, args.knobs, pipe, end, 64);
 
         // per-rank: mean of observer's avg_throughput samples for THIS run
     // const double sum        = mudock::observer_sum_avg();
@@ -122,6 +122,8 @@ for (int run = 0; run < RUNS; ++run) {
   double max_elapsed = 0.0;
   double min_elapsed = 0.0;
   double sum_elapsed = 0.0;
+
+  MPI_Barrier(MPI_COMM_WORLD);
 
   MPI_Reduce(&t_rank, &max_elapsed, 1, MPI_DOUBLE, MPI_MAX, 0, MPI_COMM_WORLD);
   MPI_Reduce(&t_rank, &min_elapsed, 1, MPI_DOUBLE, MPI_MIN, 0, MPI_COMM_WORLD);
@@ -158,7 +160,7 @@ for (int run = 0; run < RUNS; ++run) {
   return 0;
 }
 
-
+// observer version
 
 // int main(int argc, char** argv) {
 //   MPI_Init(&argc, &argv);
